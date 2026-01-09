@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>वार्ड-वार मतदाता विश्लेषण</title>
+  <style>
+    body { font-family: 'Noto Sans Devanagari', Arial, sans-serif; padding: 20px; max-width: 800px; margin: auto; background: #f5f7fa; }
+    h1 { text-align: center; color: #2c3e50; margin-bottom: 20px; }
+    label { display: block; margin-top: 15px; font-weight: bold; }
+    select, input { padding: 10px; margin: 8px 0; font-size: 16px; width: 100%; max-width: 250px; }
+    button { padding: 10px 20px; font-size: 16px; background: #3498db; color: white; border: none; cursor: pointer; margin-top: 10px; }
+    button:hover { background: #2980b9; }
+    #result { margin-top: 20px; padding: 15px; background: white; border-radius: 8px; display: none; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+    .info { background: #e8f4fc; padding: 10px; border-radius: 5px; margin: 10px 0; }
+    .error { color: #e74c3c; }
+    .success { color: #27ae60; }
+    .names { margin-top: 12px; line-height: 1.5; background: #f9f9f9; padding: 10px; border-radius: 5px; }
+  </style>
+</head>
+<body>
+  <h1>🏘️ वार्ड-वार मतदाता विश्लेषण</h1>
+
+  <!-- Step 1: Select Ward -->
+  <label for="wardSelect">1. वार्ड चुनें:</label>
+  <select id="wardSelect">
+    <option value="">-- वार्ड चुनें --</option>
+  </select>
+
+  <!-- Step 2: Show Total Houses (auto-filled after ward selection) -->
+  <div id="houseSummary" class="info" style="display: none;">
+    इस वार्ड में कुल <strong id="totalHouses">0</strong> मकान हैं।
+  </div>
+
+  <!-- Step 3: Select House -->
+  <label for="houseSelect">2. मकान संख्या चुनें:</label>
+  <select id="houseSelect" disabled>
+    <option value="">-- मकान चुनें --</option>
+  </select>
+
+  <!-- Show Button -->
+  <button onclick="showVoters()">3. मतदाता देखें</button>
+
+  <!-- Result -->
+  <div id="result"></div>
+
+  <script>
+    let allData = [];
+    const wardSelect = document.getElementById('wardSelect');
+    const houseSelect = document.getElementById('houseSelect');
+    const houseSummary = document.getElementById('houseSummary');
+    const totalHousesEl = document.getElementById('totalHouses');
+    const resultDiv = document.getElementById('result');
+
+    // Load data
+    fetch('voters.json')
+      .then(response => response.json())
+      .then(data => {
+        allData = data;
+        const wards = [...new Set(data.map(d => d.Ward))].sort((a,b) => a-b);
+        wards.forEach(w => {
+          const opt = document.createElement('option');
+          opt.value = w;
+          opt.textContent = `वार्ड ${w}`;
+          wardSelect.appendChild(opt);
+        });
+      })
+      .catch(err => {
+        resultDiv.innerHTML = '<p class="error">❌ मतदाता डेटा लोड करने में विफल।</p>';
+        resultDiv.style.display = 'block';
+      });
+
+    // When ward is selected
+    wardSelect.addEventListener('change', () => {
+      const ward = parseInt(wardSelect.value);
+      if (!ward) {
+        houseSummary.style.display = 'none';
+        houseSelect.disabled = true;
+        houseSelect.innerHTML = '<option value="">-- मकान चुनें --</option>';
+        return;
+      }
+
+      // Get unique houses in this ward
+      const houses = [...new Set(allData.filter(d => d.Ward === ward).map(d => d.H_No))].sort((a,b) => a-b);
+      totalHousesEl.textContent = houses.length;
+      houseSummary.style.display = 'block';
+
+      // Populate house dropdown
+      houseSelect.innerHTML = '<option value="">-- मकान चुनें --</option>';
+      houses.forEach(h => {
+        const opt = document.createElement('option');
+        opt.value = h;
+        opt.textContent = `मकान ${h}`;
+        houseSelect.appendChild(opt);
+      });
+      houseSelect.disabled = false;
+    });
+
+    // Show voters
+    function showVoters() {
+      const ward = parseInt(wardSelect.value);
+      const house = parseInt(houseSelect.value);
+
+      if (!ward || !house) {
+        resultDiv.innerHTML = '<p class="error">⚠️ कृपया वार्ड और मकान दोनों चुनें।</p>';
+        resultDiv.style.display = 'block';
+        return;
+      }
+
+      const voters = allData.filter(d => d.Ward === ward && d.H_No === house);
+      if (voters.length === 0) {
+        resultDiv.innerHTML = `<p class="error">❌ वार्ड ${ward}, मकान ${house} में कोई मतदाता नहीं मिला।</p>`;
+      } else {
+        const names = voters.map(v => v.Voter_Name).join(', ');
+        resultDiv.innerHTML = `
+          <p class="success">✅ वार्ड ${ward}, मकान ${house}</p>
+          <p><strong>कुल मतदाता:</strong> ${voters.length}</p>
+          <p class="names"><strong>मतदाता नाम:</strong><br>${names}</p>
+        `;
+      }
+      resultDiv.style.display = 'block';
+    }
+  </script>
+</body>
+</html>
